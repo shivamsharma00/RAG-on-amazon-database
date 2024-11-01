@@ -24,11 +24,17 @@ def search_reviews(query: str, top_k: int = 5) -> List[Dict]:
 
     # Generate embeddings for the query
     query_embedding = generate_embeddings([query])[0].tolist()
+    
 
     # Connect to MongoDB
     client = get_mongo_client()
     db = client['AmazonDataset']
-    collection = db['fashion_dataset']
+    collection = db['reviews']
+
+    # Check if embeddings exist in the collection
+    if not collection.count_documents({'embedding': {'$exists': True}}):
+        logger.error("No documents found with 'embedding' field in the collection.")
+        return []
 
     # Aggergation pipeline
     pipeline = [
@@ -48,15 +54,19 @@ def search_reviews(query: str, top_k: int = 5) -> List[Dict]:
                 'text': 1,
                 'score': {
                     '$meta': 'searchScore'
-                }
+                },
+                '_id': 1
             }
         }
     ]
 
     # Execute the query 
     logger.info(f"Executing vector search query ...")
-    # Execute the aggregation pipeline
-    results = list(collection.aggregate(pipeline))
-    logger.info(f"Vector search query executed successfully.")
-
-    return results
+    try:
+        # Execute the aggregation pipeline
+        results = list(collection.aggregate(pipeline))
+        logger.info(f"Vector search query executed successfully.")
+        return results
+    except Exception as e:
+        logger.error(f"Error executing vector search query: {e}")
+        return []

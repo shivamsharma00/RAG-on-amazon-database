@@ -8,4 +8,4 @@ fastapi
 uvicorn
 transformers
 torch
-unittest
+dask

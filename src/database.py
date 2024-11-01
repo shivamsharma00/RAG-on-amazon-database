@@ -1,9 +1,11 @@
 # src/database.py
 
-from pymongo import MongoClient
+from pymongo import MongoClient, ASCENDING
 import os
 from typing import List, Dict
+from pymongo.collection import Collection
 import logging
+from pymongo.errors import BulkWriteError
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -19,7 +21,7 @@ def get_mongo_client(uri: str = None) -> MongoClient:
         MongoClient: A MongoDB client instance.
     """
     if uri is None:
-        uri = os.getenv("MONGODB_URI")
+        uri = os.getenv("MONGODB_URI", "mongodb://localhost:27017/")
     client = MongoClient(uri)
     logger.info("MongoDB client created successfully.")
     return client
@@ -36,23 +38,42 @@ def insert_records(collection, records: List[Dict]) -> None:
         logger.info(f"Inserting {len(records)} records into {collection} collection...")
         collection.insert_many(records)
         logger.info(f"Records inserted successfully.")
+    except BulkWriteError as e:
+        logger.error(f"BulkWriteError occurred: {e.details}")
     except Exception as e:
         logger.error(f"Error inserting records into {collection} collection: {e}")
         raise e
 
-def create_vector_index(collection, field_name: str = 'embedding', index_name: str = 'embedding_index') -> None:
+def create_vector_index(collection) -> None:
     """
     Create a vector index on a collection field.
 
     Args:
-        collection (str): The name of the collection to create the vector index on.
-        field_name (str): The name of the field to create the vector index on.
-        index_name (str): The name of the vector index.
+        collection (Collection): The collection to create the vector index on.
+        
     """
-    logger.info(f"Creating vector index on field {field_name}....")
+    logger.info(f"Creating vector index on field {collection.name}....")
     try:
-        collection.create_index([(field_name, 'cosine')], name=index_name)
+        collection.create_index([('title', ASCENDING)], name='title_index')
+        collection.create_index([('text', ASCENDING)], name='text_index')
+        collection.create_index([('embedding', 'cosine')], name='embedding_index')
+
         logger.info(f"Vector index created successfully.")
     except Exception as e:
-        logger.error(f"Error creating vector index on field {field_name}: {e}")
+        logger.error(f"Error creating vector index on field {collection.name}: {e}")
         raise e
+
+def create_collection(db, collection_name: str) -> Collection:
+    """
+    Create a collection in the database.
+
+    Args:
+        db (Database): The database to create the collection in.
+        collection_name (str): The name of the collection to create.
+
+    Returns:
+        Collection: The created collection.
+    """
+    logger.info(f"Creating collection {collection_name} in database {db.name}...")
+    return db[collection_name]
+
