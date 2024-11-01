@@ -1,0 +1,11 @@
+pandas
+numpy
+nltk
+beautifulsoup4
+pymongo
+sentence-transformers
+fastapi
+uvicorn
+transformers
+torch
+unittest
